@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Configure Tailwind dark mode to 'class'
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+</head>
+<body class="bg-white dark:bg-black text-purple-900 dark:text-purple-200 min-h-screen flex flex-col">
+
+<!-- Header -->
+<header class="flex justify-between items-center p-4 bg-purple-700 dark:bg-black shadow-md">
+  <h1 class="text-2xl font-bold text-white">Admin Dashboard</h1>
+  <div class="flex items-center space-x-4">
+    <a href="{{ url_for('index') }}"
+       class="bg-white dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-4 py-2 rounded font-semibold hover:bg-purple-200 dark:hover:bg-purple-700 transition">
+      ⬅ Back to Site
+    </a>
+
+    <!-- Dark Mode Toggle Button -->
+    <button id="dark-mode-toggle" aria-label="Toggle dark mode"
+      class="p-2 rounded bg-purple-300 dark:bg-purple-700 text-purple-900 dark:text-purple-200 hover:bg-purple-400 dark:hover:bg-purple-600 transition">
+      <svg id="icon-light" class="w-6 h-6 block dark:hidden" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11z"/>
+      </svg>
+      <svg id="icon-dark" class="w-6 h-6 hidden dark:block" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto p-6 flex-grow space-y-10">
+  <!-- Users Section -->
+  <section>
+    <h2 class="text-xl font-bold mb-4">👥 Users</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full border border-purple-300 dark:border-purple-700 rounded-lg overflow-hidden">
+        <thead class="bg-purple-200 dark:bg-purple-800 text-purple-900 dark:text-purple-200">
+          <tr>
+            <th class="px-4 py-2 text-left">ID</th>
+            <th class="px-4 py-2 text-left">Username</th>
+            <th class="px-4 py-2 text-left">Role</th>
+            <th class="px-4 py-2 text-left">Ban Status</th>
+            <th class="px-4 py-2 text-left">Uploads</th>
+            <th class="px-4 py-2 text-left">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="border-t border-purple-300 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900">
+            <td class="px-4 py-2">{{ u.id }}</td>
+            <td class="px-4 py-2">@{{ u.username }}</td>
+            <td class="px-4 py-2 font-semibold {% if u.role == 'admin' %}text-red-600 dark:text-red-400{% endif %}">{{ u.role }}</td>
+            <td class="px-4 py-2">
+              {% if u.is_banned %}
+                <span class="text-red-600 dark:text-red-400 font-semibold">
+                  Banned 
+                  {% if u.ban_until %}
+                    until {{ u.ban_until }}
+                  {% else %}
+                    permanently
+                  {% endif %}
+                </span>
+              {% else %}
+                <span class="text-green-600 dark:text-green-400 font-semibold">Active</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2">
+              {% if u.role != "admin" %}
+                {% if u.uploads_enabled %}
+                  <span class="text-green-600 dark:text-green-400 font-semibold">Enabled</span>
+                  <form method="POST" action="{{ url_for('disable_uploads', user_id=u.id) }}" class="inline ml-2">
+                    <button type="submit" class="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">Disable</button>
+                  </form>
+                {% else %}
+                  <span class="text-red-600 dark:text-red-400 font-semibold">Disabled</span>
+                  <form method="POST" action="{{ url_for('enable_uploads', user_id=u.id) }}" class="inline ml-2">
+                    <button type="submit" class="bg-green-500 hover:bg-green-700 text-white px-3 py-1 rounded text-xs">Enable</button>
+                  </form>
+                {% endif %}
+              {% else %}
+                <span class="text-gray-500 italic">Admin protected</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2">
+              {% if u.role != "admin" %}
+                {% if u.is_banned %}
+                  <form method="POST" action="{{ url_for('admin_unban_user', user_id=u.id) }}" class="inline mr-2">
+                    <button type="submit" class="bg-green-500 hover:bg-green-700 text-white px-3 py-1 rounded font-semibold">✔ Unban</button>
+                  </form>
+                {% else %}
+                  <form method="POST" action="{{ url_for('admin_ban_user', user_id=u.id) }}" class="inline mr-2 space-x-1">
+                    <select name="ban_action" required class="rounded border border-purple-400 px-2 py-1 text-sm">
+                      <option value="temp" selected>Temporary</option>
+                      <option value="perm">Permanent</option>
+                    </select>
+                    <input type="text" name="duration" placeholder="Duration (e.g. 1d, 5h, 30m)" 
+                      class="rounded border border-purple-400 px-2 py-1 text-sm" />
+                    <button type="submit" class="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded font-semibold">🚫 Ban</button>
+                  </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('admin_delete_user_content', user_id=u.id) }}" class="inline" onsubmit="return confirm('Delete all content for @{{ u.username }}?');">
+                  <button type="submit" class="bg-yellow-500 hover:bg-yellow-700 text-white px-3 py-1 rounded font-semibold">🗑 Delete Content</button>
+                </form>
+              {% else %}
+                <span class="text-gray-500 italic">Admin protected</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Artworks Section -->
+  <section>
+    <h2 class="text-xl font-bold mb-4">🎨 Artworks</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for art in arts %}
+      <div class="bg-white dark:bg-purple-900 shadow-md rounded-lg overflow-hidden flex flex-col">
+        <img src="{{ url_for('uploaded_file', filename=art.image_filename) if art.image_filename else url_for('static', filename='placeholder.png') }}"
+             alt="{{ art.title }}" class="w-full h-48 object-cover">
+        <div class="p-4 flex flex-col flex-grow">
+          <h3 class="text-lg font-bold text-purple-700 dark:text-purple-200">{{ art.title }}</h3>
+          <p class="text-sm text-purple-600 dark:text-purple-400 mb-2">By @{{ art.creator_name }}</p>
+          <div class="flex justify-between items-center mt-auto">
+            <span class="text-sm text-purple-500">👍 {{ art.likes }} | 👎 {{ art.dislikes }}</span>
+            <form method="POST" action="{{ url_for('admin_delete_art', art_id=art.id) }}">
+              <button type="submit" class="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded font-semibold">🗑 Delete</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+
+<script>
+  // Dark mode toggle logic
+  const toggleButton = document.getElementById('dark-mode-toggle');
+  const htmlElement = document.documentElement;
+
+  if(localStorage.getItem('theme') === 'dark' ||
+    (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    htmlElement.classList.add('dark');
+  } else {
+    htmlElement.classList.remove('dark');
+  }
+
+  toggleButton.addEventListener('click', () => {
+    htmlElement.classList.toggle('dark');
+    if(htmlElement.classList.contains('dark')) {
+      localStorage.setItem('theme', 'dark');
+    } else {
+      localStorage.setItem('theme', 'light');
+    }
+  });
+</script>
+
+</body>
+</html>
