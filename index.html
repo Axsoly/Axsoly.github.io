@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Art Showcase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Enable dark mode using 'class' strategy
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    body.modal-open { overflow: hidden; }
+    /* Custom styles for modal */
+    #fullscreenModal {
+      backdrop-filter: blur(8px);
+    }
+    .modal-content {
+      transition: transform 0.3s ease-out;
+    }
+  </style>
+</head>
+<body class="bg-white dark:bg-black text-purple-900 dark:text-purple-200 min-h-screen flex flex-col">
+
+<!-- ========== Header ========== -->
+<header class="flex justify-between items-center p-4 bg-purple-700 dark:bg-black shadow-md">
+  <!-- Search -->
+  <form method="GET" action="{{ url_for('search') }}" class="flex flex-wrap gap-2">
+    <input type="search" name="q" placeholder="Search drawings..." 
+      class="rounded px-3 py-2 w-64 dark:bg-purple-900 dark:text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+    <button type="submit" class="bg-purple-400 hover:bg-purple-500 text-white px-4 py-2 rounded shadow-md font-semibold">Search</button>
+  </form>
+  <!-- Create / Account / Dark toggle -->
+  <div class="flex items-center space-x-4">
+    <form method="GET" action="{{ url_for('create_art') }}">
+      <button type="submit" 
+        class="bg-white dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-4 py-2 rounded font-semibold hover:bg-purple-200 dark:hover:bg-purple-700 transition">
+        Create Art
+      </button>
+    </form>
+    <!-- Dark mode toggle -->
+    <button id="dark-mode-toggle" aria-label="Toggle dark mode" 
+      class="p-2 rounded bg-purple-300 dark:bg-purple-700 text-purple-900 dark:text-purple-200 hover:bg-purple-400 dark:hover:bg-purple-600 transition">
+      <svg id="icon-light" class="w-6 h-6 block dark:hidden" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11z"/>
+      </svg>
+      <svg id="icon-dark" class="w-6 h-6 hidden dark:block" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+      </svg>
+    </button>
+    <!-- Account dropdown -->
+    <div class="relative" id="account-dropdown-container">
+      <button id="btn-account" class="bg-white dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-4 py-2 rounded font-semibold hover:bg-purple-200 dark:hover:bg-purple-700 transition">
+        {% if user %}Account{% else %}Login{% endif %}
+      </button>
+      <div id="account-dropdown" class="hidden absolute right-0 mt-2 w-44 bg-white dark:bg-purple-900 rounded shadow-lg z-30 divide-y divide-purple-300 dark:divide-purple-700">
+        {% if user %}
+        <ul>
+          <li><a href="/artist/{{ user.username }}" class="block px-4 py-2 hover:bg-purple-200 dark:hover:bg-purple-800 rounded">Profile</a></li>
+          <li><a href="{{ url_for('settings') }}" class="block px-4 py-2 hover:bg-purple-200 dark:hover:bg-purple-800 rounded">Settings</a></li>
+          {% if user.role == 'admin' %}
+            <li><a href="{{ url_for('admin_dashboard') }}" class="block px-4 py-2 hover:bg-purple-200 dark:hover:bg-purple-800 rounded">Admin Dashboard</a></li>
+          {% endif %}
+          <li>
+            <form method="POST" action="{{ url_for('logout') }}">
+              <button type="submit" class="w-full text-left px-4 py-2 hover:bg-purple-200 dark:hover:bg-purple-800 rounded text-red-600 dark:text-red-400">Log Out</button>
+            </form>
+          </li>
+        </ul>
+        {% else %}
+        <div class="px-2 py-2">
+          <form method="POST" action="{{ url_for('login') }}">
+            <input type="text" name="username" placeholder="Username" required
+              class="w-full mb-2 rounded px-3 py-2 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-200 focus:outline-none" />
+            <input type="password" name="password" placeholder="Password" required
+              class="w-full mb-2 rounded px-3 py-2 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-200 focus:outline-none" />
+            <button type="submit" class="w-full bg-purple-400 hover:bg-purple-600 text-white py-2 rounded mb-2 font-semibold">Log In</button>
+          </form>
+          <a href="{{ url_for('signup') }}" class="block text-center text-purple-700 dark:text-purple-300 font-semibold hover:underline">Create an Account</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ========== Sorting ========== -->
+<main class="max-w-7xl mx-auto p-6 flex-grow">
+  <div class="flex justify-center space-x-4 mb-6">
+    <a href="{{ url_for('index', sort='most-liked') }}" class="px-4 py-2 rounded bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200 font-semibold hover:bg-purple-300 dark:hover:bg-purple-900 {% if sort == 'most-liked' %}ring-2 ring-purple-500{% endif %}">Most Liked</a>
+    <a href="{{ url_for('index', sort='relevance') }}" class="px-4 py-2 rounded bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200 font-semibold hover:bg-purple-300 dark:hover:bg-purple-900 {% if sort == 'relevance' %}ring-2 ring-purple-500{% endif %}">Relevance</a>
+    <a href="{{ url_for('index', sort='most-disliked') }}" class="px-4 py-2 rounded bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200 font-semibold hover:bg-purple-300 dark:hover:bg-purple-900 {% if sort == 'most-disliked' %}ring-2 ring-purple-500{% endif %}">Most Disliked</a>
+  </div>
+
+  <!-- ========== Artworks ========== -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    {% for art in artworks %}
+    <article class="bg-white dark:bg-purple-900 rounded-lg shadow-md overflow-hidden flex flex-col">
+      <img src="{{ art.image_url }}" alt="{{ art.title }}" class="object-contain w-full h-64 cursor-pointer open-modal" 
+           data-image="{{ art.image_url }}" data-title="{{ art.title }}" data-comments='{{ art.comments|tojson }}' data-artid="{{ art.id }}" />
+      <div class="p-4 flex flex-col flex-grow">
+        <h3 class="text-xl font-bold mb-1 text-purple-700 dark:text-purple-200">{{ art.title }}</h3>
+        <a class="text-sm mb-3 text-purple-600 dark:text-purple-400" href="/artist/{{ art.creator }}">@{{ art.creator }}</a>
+        <div class="flex space-x-4 mb-2">
+          <form method="POST" action="{{ url_for('like_art', art_id=art.id) }}">
+            <button type="submit" class="flex items-center space-x-1 text-green-600 dark:text-green-400 hover:scale-110 transition transform">
+              <span>👍</span><span>{{ art.likes }}</span>
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('dislike_art', art_id=art.id) }}">
+            <button type="submit" class="flex items-center space-x-1 text-red-600 dark:text-red-400 hover:scale-110 transition transform">
+              <span>👎</span><span>{{ art.dislikes }}</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="flex-grow overflow-auto max-h-28 mb-2 space-y-1 text-sm text-purple-700 dark:text-purple-300">
+          {% for comment in art.comments %}
+          <p>💬 {{ comment }}</p>
+          {% endfor %}
+        </div>
+
+        {% if user and user.id == art.creator_id %}
+        <form method="POST" action="{{ url_for('delete_art', art_id=art.id) }}" class="mt-2">
+          <div class="py-4">
+          <button type="submit"
+              class="bg-red-500 hover:bg-red-700 text-white px-4 py-1 rounded font-semibold">
+              🗑 Delete Picture
+          </button>
+          </div>
+        </form>
+        {% endif %}
+
+        {% if user %}
+        <form method="POST" action="{{ url_for('add_comment', art_id=art.id) }}" class="flex space-x-2">
+          <input type="text" name="comment" placeholder="Add a comment..." required
+            class="flex-grow rounded border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-200 px-3 py-2 focus:outline-none" />
+          <button type="submit" class="bg-purple-400 hover:bg-purple-600 text-white px-4 py-2 rounded font-semibold transition">Comment</button>
+        </form>
+        {% else %}
+        <p class="text-center text-purple-600 dark:text-purple-400 italic">Log in to comment</p>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+</main>
+
+<!-- ===== Fixed Fullscreen Modal ===== -->
+<div id="fullscreenModal" class="fixed inset-0 hidden z-50 flex bg-black bg-opacity-95 justify-center items-center p-4">
+  <div class="relative w-full h-full flex justify-center items-center">
+    <img id="modalImage" src="" alt="" class="max-w-full max-h-full object-scale-down" />
+    <button onclick="closeFullscreenModal()" class="absolute top-4 right-4 px-4 py-2 bg-purple-700 text-white rounded-full hover:bg-purple-600 font-bold text-xl shadow-lg" aria-label="Close modal">&times;</button>
+  </div>
+</div>
+
+<script>
+  // Modal opening function
+  function openFullscreenModal(imageUrl, caption, comments, artId) {
+    const modal = document.getElementById('fullscreenModal');
+    const modalImage = document.getElementById('modalImage');
+    
+    // Preload image to get dimensions
+    const img = new Image();
+    img.onload = function() {
+      modalImage.src = imageUrl;
+      modalImage.alt = caption;
+      
+      // Apply appropriate class based on image orientation
+      if (img.width > img.height) {
+        modalImage.classList.add('w-full', 'h-auto');
+        modalImage.classList.remove('w-auto', 'h-full');
+      } else {
+        modalImage.classList.add('w-auto', 'h-full');
+        modalImage.classList.remove('w-full', 'h-auto');
+      }
+      
+      modal.classList.remove('hidden');
+      document.body.classList.add('modal-open');
+      console.log('Modal opened with image:', imageUrl);
+    };
+    img.src = imageUrl;
+  }
+
+  // Modal closing function
+  function closeFullscreenModal() {
+    const modal = document.getElementById('fullscreenModal');
+    modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    console.log('Modal closed');
+  }
+
+  // Close modal when clicking outside the image
+  document.getElementById('fullscreenModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      closeFullscreenModal();
+    }
+  });
+
+  // Close modal with Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeFullscreenModal();
+    }
+  });
+
+  // Attach click event to all art images with class "open-modal"
+  document.querySelectorAll('.open-modal').forEach(img => {
+    img.addEventListener('click', () => {
+      const imageUrl = img.dataset.image;
+      const title = img.dataset.title;
+      const comments = JSON.parse(img.dataset.comments || "[]");
+      const artId = img.dataset.artid;
+      openFullscreenModal(imageUrl, title, comments, artId);
+    });
+  });
+
+  // Dark mode toggle
+  const toggleButton = document.getElementById('dark-mode-toggle');
+  const htmlElement = document.documentElement;
+  if (localStorage.getItem('theme') === 'dark' ||
+      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    htmlElement.classList.add('dark');
+  }
+  toggleButton?.addEventListener('click', () => {
+    htmlElement.classList.toggle('dark');
+    localStorage.setItem('theme', htmlElement.classList.contains('dark') ? 'dark' : 'light');
+  });
+
+  // Account dropdown toggle
+  const btnAccount = document.getElementById('btn-account');
+  const dropdown = document.getElementById('account-dropdown');
+  if (btnAccount) {
+    btnAccount.addEventListener('click', e => {
+      e.stopPropagation();
+      dropdown.classList.toggle('hidden');
+    });
+    dropdown.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', () => dropdown.classList.add('hidden'));
+  }
+</script>
+
+</body>
+</html>

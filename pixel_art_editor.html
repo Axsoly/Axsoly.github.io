@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pixel Art Editor - Art Showcase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <style>
+    #pixelGrid {
+      display: grid;
+      grid-template-columns: repeat(32, 20px);
+      grid-template-rows: repeat(32, 20px);
+      gap: 1px;
+      background-color: #d6bbfb; /* Tailwind purple-300 */
+      user-select: none;
+      width: max-content;
+      height: max-content;
+      margin: 0 auto;
+    }
+    .pixel {
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body class="bg-white dark:bg-black text-purple-900 dark:text-purple-200 min-h-screen flex flex-col items-center py-8">
+
+<!-- Header with dark mode toggle -->
+<header class="flex justify-between items-center w-full max-w-4xl mb-8 px-4">
+  <h1 class="text-4xl font-bold text-purple-700 dark:text-purple-300">Pixel Art Editor</h1>
+  <button id="dark-mode-toggle" aria-label="Toggle dark mode"
+    class="p-2 rounded bg-purple-300 dark:bg-purple-700 text-purple-900 dark:text-purple-200 hover:bg-purple-400 dark:hover:bg-purple-600 transition">
+    <svg id="icon-light" class="w-6 h-6 block dark:hidden" fill="currentColor" viewBox="0 0 20 20">
+      <path d="M10 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11z" />
+    </svg>
+    <svg id="icon-dark" class="w-6 h-6 hidden dark:block" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
+    </svg>
+  </button>
+</header>
+
+<div class="flex flex-col space-y-6 items-center">
+
+  <div class="w-full max-w-xs mb-4 px-4">
+    <label for="artTitle" class="block mb-1 font-semibold text-purple-700 dark:text-purple-300">Art Title</label>
+    <input type="text" id="artTitle" name="artTitle" placeholder="Enter art title" required
+      class="w-full rounded px-3 py-2 bg-purple-50 dark:bg-purple-900 border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+  </div>
+
+  <div class="mb-6 flex space-x-4 px-4">
+    <div>
+      <label for="canvasWidth" class="block mb-1 font-semibold text-purple-700 dark:text-purple-300">Canvas Width</label>
+      <input type="number" id="canvasWidth" name="canvasWidth" min="8" max="64" value="32"
+        class="w-20 rounded px-3 py-2 bg-purple-50 dark:bg-purple-900 border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+    </div>
+    <div>
+      <label for="canvasHeight" class="block mb-1 font-semibold text-purple-700 dark:text-purple-300">Canvas Height</label>
+      <input type="number" id="canvasHeight" name="canvasHeight" min="8" max="64" value="32"
+        class="w-20 rounded px-3 py-2 bg-purple-50 dark:bg-purple-900 border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400" />
+    </div>
+  </div>
+
+  <div class="px-4">
+    <label for="colorPicker" class="mr-2 font-semibold text-purple-700 dark:text-purple-300">Pick Color:</label>
+    <input type="color" value="#7c3aed" id="colorPicker" class="w-12 h-12 border-0 rounded">
+  </div>
+
+  <div id="pixelGrid" aria-label="Pixel Art Canvas" role="grid" tabindex="0" aria-describedby="instructions"></div>
+
+  <p id="instructions" class="text-purple-600 dark:text-purple-400 text-center max-w-md mt-2 mb-6 px-4">
+    Click or drag over the grid to paint pixels. Choose color above.
+  </p>
+
+  <div class="flex space-x-4 px-4">
+    <button id="clearBtn" type="button"
+      class="bg-purple-400 hover:bg-purple-600 text-white px-4 py-2 rounded font-semibold transition">Clear</button>
+    <button id="saveBtn" type="button"
+      class="bg-purple-400 hover:bg-purple-600 text-white px-6 py-3 rounded font-semibold transition">Save Pixel Art</button>
+    <a href="{{ url_for('index') }}"
+      class="bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200 px-4 py-2 rounded font-semibold hover:bg-purple-300 dark:hover:bg-purple-900 transition">Back
+      to Gallery</a>
+  </div>
+</div>
+
+<script>
+  // Dark mode toggle logic
+  const toggleButton = document.getElementById('dark-mode-toggle');
+  const htmlElement = document.documentElement;
+
+  if (localStorage.getItem('theme') === 'dark' ||
+      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    htmlElement.classList.add('dark');
+  } else {
+    htmlElement.classList.remove('dark');
+  }
+
+  toggleButton.addEventListener('click', () => {
+    htmlElement.classList.toggle('dark');
+    if (htmlElement.classList.contains('dark')) {
+      localStorage.setItem('theme', 'dark');
+    } else {
+      localStorage.setItem('theme', 'light');
+    }
+  });
+
+  // Pixel art editor logic
+  const pixelGrid = document.getElementById('pixelGrid');
+  const colorPicker = document.getElementById('colorPicker');
+  const clearBtn = document.getElementById('clearBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const canvasWidthInput = document.getElementById('canvasWidth');
+  const canvasHeightInput = document.getElementById('canvasHeight');
+
+  let gridWidth = parseInt(canvasWidthInput.value);
+  let gridHeight = parseInt(canvasHeightInput.value);
+  let isDrawing = false;
+
+  function createGrid(width, height) {
+    pixelGrid.innerHTML = '';
+    pixelGrid.style.gridTemplateColumns = `repeat(${width}, 20px)`;
+    pixelGrid.style.gridTemplateRows = `repeat(${height}, 20px)`;
+
+    for (let i = 0; i < width * height; i++) {
+      const pixel = document.createElement('div');
+      pixel.classList.add('pixel');
+      pixel.dataset.index = i;
+      pixel.style.backgroundColor = 'white';
+      pixel.addEventListener('mousedown', paintPixel);
+      pixel.addEventListener('mouseover', paintPixelOnDrag);
+      pixelGrid.appendChild(pixel);
+    }
+  }
+
+  function paintPixel(e) {
+    e.preventDefault();
+    isDrawing = true;
+    e.target.style.backgroundColor = colorPicker.value;
+  }
+
+  function paintPixelOnDrag(e) {
+    if (isDrawing) {
+      e.target.style.backgroundColor = colorPicker.value;
+    }
+  }
+
+  window.addEventListener('mouseup', () => {
+    isDrawing = false;
+  });
+
+  clearBtn.addEventListener('click', () => {
+    pixelGrid.querySelectorAll('.pixel').forEach(pixel => { pixel.style.backgroundColor = 'white'; });
+  });
+
+  canvasWidthInput.addEventListener('change', () => {
+    let val = parseInt(canvasWidthInput.value);
+    if (isNaN(val) || val < 8) val = 8;
+    if (val > 64) val = 64;
+    canvasWidthInput.value = val;
+    gridWidth = val;
+    createGrid(gridWidth, gridHeight);
+  });
+
+  canvasHeightInput.addEventListener('change', () => {
+    let val = parseInt(canvasHeightInput.value);
+    if (isNaN(val) || val < 8) val = 8;
+    if (val > 64) val = 64;
+    canvasHeightInput.value = val;
+    gridHeight = val;
+    createGrid(gridWidth, gridHeight);
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    const artTitle = document.getElementById('artTitle').value.trim();
+    if (!artTitle) {
+      alert('Please enter an art title.');
+      return;
+    }
+    const scale = 10;
+    const canvasSizeWidth = gridWidth * scale;
+    const canvasSizeHeight = gridHeight * scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasSizeWidth;
+    canvas.height = canvasSizeHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    pixelGrid.querySelectorAll('.pixel').forEach((pixel, i) => {
+      const x = i % gridWidth;
+      const y = Math.floor(i / gridWidth);
+      ctx.fillStyle = pixel.style.backgroundColor || 'white';
+      ctx.fillRect(x * scale, y * scale, scale, scale);
+    });
+    const dataUrl = canvas.toDataURL('image/png');
+    try {
+      const formData = new FormData();
+      formData.append('pixelArtData', dataUrl);
+      formData.append('title', artTitle);
+      const response = await fetch('{{ url_for("save_pixel_art") }}', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+      if (response.redirected) {
+        window.location.href = response.url;
+      } else {
+        const text = await response.text();
+        alert('Error saving pixel art: ' + text);
+      }
+    } catch (error) {
+      alert('Failed to save pixel art: ' + error.message);
+    }
+  });
+
+  createGrid(gridWidth, gridHeight);
+</script>
+
+</body>
+</html>

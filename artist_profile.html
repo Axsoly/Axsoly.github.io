@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ artist.username }}'s Profile - Art Showcase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Enable dark mode using 'class' strategy
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+  <style>
+    /* Prevent page scroll behind modal */
+    body.modal-open {
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-white dark:bg-black text-purple-900 dark:text-purple-200 min-h-screen flex flex-col">
+
+<header class="flex justify-between items-center p-4 bg-purple-700 dark:bg-black shadow-md">
+  <h1 class="text-2xl font-bold text-white">{{ artist.username }}'s Artworks</h1>
+  <div class="flex items-center space-x-4">
+    <a href="{{ url_for('index') }}" class="bg-purple-400 hover:bg-purple-600 text-white px-4 py-2 rounded font-semibold">Back to Gallery</a>
+    <button id="dark-mode-toggle" aria-label="Toggle dark mode"
+      class="p-2 rounded bg-purple-300 dark:bg-purple-700 text-purple-900 dark:text-purple-200 hover:bg-purple-400 dark:hover:bg-purple-600 transition">
+      <svg id="icon-light" class="w-6 h-6 block dark:hidden" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11z" />
+      </svg>
+      <svg id="icon-dark" class="w-6 h-6 hidden dark:block" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto p-6 flex-grow">
+  <!-- Profile Follow Info -->
+  <section class="max-w-xl mx-auto bg-purple-50 dark:bg-purple-900 rounded p-6 flex items-center justify-between">
+    <div class="space-x-6 text-purple-700 dark:text-purple-300 font-semibold flex">
+      <div><span>{{ followers_count }}</span> Followers</div>
+      <div><span>{{ following_count }}</span> Following</div>
+    </div>
+
+    {% if user and user.id != artist.id %}
+    <form method="POST" action="{{ url_for('follow_creator', creator_id=artist.id) }}" class="inline">
+      {% if is_followed_by_user %}
+      <button formaction="{{ url_for('unfollow_creator', creator_id=artist.id) }}" type="submit"
+        class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded font-semibold transition">Unfollow</button>
+      {% else %}
+      <button type="submit"
+        class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded font-semibold transition">Follow</button>
+      {% endif %}
+    </form>
+    {% endif %}
+  </section>
+
+  <!-- Artworks Grid -->
+  {% if artworks %}
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    {% for art in artworks %}
+    <article class="bg-white dark:bg-purple-900 rounded-lg shadow-md overflow-hidden flex flex-col">
+      <img src="{{ art.image_url }}" alt="{{ art.title }}" class="object-cover w-full h-64 cursor-pointer"
+        onclick="openFullscreenModal('{{ art.image_url }}', '{{ art.title }}', {{ art.comments|tojson|safe }}, {{ art.id }})" />
+      <div class="p-4 flex flex-col flex-grow">
+        <h3 class="text-xl font-bold mb-1 text-purple-700 dark:text-purple-200">{{ art.title }}</h3>
+        <a class="text-sm mb-3 text-purple-600 dark:text-purple-400" href="/artist/{{ art.creator }}">@{{ art.creator }}</a>
+
+        <div class="flex space-x-4 mb-2">
+          <form method="POST" action="{{ url_for('like_art', art_id=art.id) }}">
+            <button type="submit"
+              class="flex items-center space-x-1 text-green-600 dark:text-green-400 hover:scale-110 transition transform">
+              <span>👍</span><span>{{ art.likes }}</span>
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('dislike_art', art_id=art.id) }}">
+            <button type="submit"
+              class="flex items-center space-x-1 text-red-600 dark:text-red-400 hover:scale-110 transition transform">
+              <span>👎</span><span>{{ art.dislikes }}</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="flex-grow overflow-auto max-h-28 mb-2 space-y-1 text-sm text-purple-700 dark:text-purple-300">
+          {% for comment in art.comments %}
+          <p>💬 {{ comment }}</p>
+          {% endfor %}
+        </div>
+
+        {% if user and user.id == art.creator_id %}
+        <form method="POST" action="{{ url_for('delete_art', art_id=art.id) }}" class="mt-2">
+          <button type="submit"
+            class="bg-red-500 hover:bg-red-700 text-white px-4 py-1 rounded font-semibold">🗑 Delete Picture</button>
+        </form>
+        {% endif %}
+
+        {% if user %}
+        <form method="POST" action="{{ url_for('add_comment', art_id=art.id) }}" class="flex space-x-2">
+          <input type="text" name="comment" placeholder="Add a comment..." required
+            class="flex-grow rounded border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-200 px-3 py-2 focus:outline-none" />
+          <button type="submit"
+            class="bg-purple-400 hover:bg-purple-600 text-white px-4 py-2 rounded font-semibold transition">Comment</button>
+        </form>
+        {% else %}
+        <p class="text-center text-purple-600 dark:text-purple-400 italic">Log in to comment</p>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+  {% else %}
+  <p class="text-center text-purple-700 dark:text-purple-300 italic">No artwork yet.</p>
+  {% endif %}
+
+  <!-- Profile Comments Section -->
+  <section class="max-w-xl mx-auto bg-purple-50 dark:bg-purple-900 rounded p-6 space-y-4 mt-8">
+    <h2 class="text-xl font-semibold text-purple-700 dark:text-purple-300">Comments on {{ artist.username }}'s Profile
+    </h2>
+
+    {% if user %}
+    <form method="POST" action="{{ url_for('profile_comment', profile_owner_id=artist.id) }}" class="flex flex-col space-y-3">
+      <textarea name="comment" rows="3" placeholder="Write a comment..." required
+        class="resize-none rounded border border-purple-300 dark:border-purple-700 px-3 py-2 bg-white dark:bg-purple-950 text-purple-900 dark:text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400"></textarea>
+      <button type="submit"
+        class="self-end bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded font-semibold transition">Add
+        Comment</button>
+    </form>
+    {% else %}
+    <p class="italic text-purple-700 dark:text-purple-400 text-center">Log in to comment on the profile.</p>
+    {% endif %}
+
+    {% if profile_comments %}
+    <div class="space-y-3 max-h-60 overflow-y-auto">
+      {% for c in profile_comments %}
+      <div class="border border-purple-300 dark:border-purple-700 rounded p-3 bg-white dark:bg-purple-900">
+        <p class="text-sm text-purple-900 dark:text-purple-200"><strong>{{ c.username }}</strong> said:</p>
+        <p class="mt-1 text-purple-700 dark:text-purple-300">{{ c.comment }}</p>
+        <p class="mt-2 text-xs text-right text-purple-500 dark:text-purple-600">{{ c.created }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-center italic text-purple-700 dark:text-purple-400">No comments on this profile yet.</p>
+    {% endif %}
+  </section>
+
+</main>
+
+<!-- Fullscreen Modal -->
+<div id="fullscreenModal" class="fixed inset-0 bg-black bg-opacity-95 hidden z-50 flex" style="width: 100vw; height: 100vh; overflow: hidden;">
+  <div class="flex w-full h-full">
+
+    <!-- Image container (80% width) -->
+    <div class="w-4/5 flex justify-center items-center p-4 overflow-hidden">
+      <img id="modalImage" src="" alt="" style="width: 100%; height: auto; object-fit: contain;" />
+    </div>
+
+    <!-- Comments container (20% width) -->
+    <aside class="w-1/5 bg-purple-900 text-purple-200 flex flex-col p-6 overflow-y-auto max-h-full relative">
+      <button onclick="closeFullscreenModal()"
+        class="absolute top-4 right-4 px-3 py-1 bg-purple-700 rounded text-white hover:bg-purple-600 font-bold text-xl z-50">
+        &times;
+      </button>
+      <h3 class="text-lg font-bold mb-6">Comments</h3>
+      <div id="fullscreenComments" class="flex-grow space-y-3 text-purple-200"></div>
+      {% if user %}
+      <form id="fullscreenCommentForm" onsubmit="submitFullscreenComment(event)" class="flex flex-col space-y-4 mt-6">
+        <input type="text" name="comment" placeholder="Add a comment..." required
+          class="rounded border border-purple-500 dark:border-purple-700 px-3 py-2 bg-purple-800 text-white focus:outline-none" />
+        <button type="submit" class="bg-purple-600 hover:bg-purple-700 rounded py-2 font-semibold transition text-white">
+          Post Comment
+        </button>
+      </form>
+      {% else %}
+      <p class="italic text-purple-400 mt-6">Log in to comment.</p>
+      {% endif %}
+    </aside>
+
+  </div>
+</div>
+
+<script>
+// Dark mode toggle
+const toggleButton = document.getElementById('dark-mode-toggle');
+const htmlElement = document.documentElement;
+
+if(localStorage.getItem('theme') === 'dark' ||
+  (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+  htmlElement.classList.add('dark');
+} else {
+  htmlElement.classList.remove('dark');
+}
+
+toggleButton.addEventListener('click', () => {
+  htmlElement.classList.toggle('dark');
+  if(htmlElement.classList.contains('dark')) {
+    localStorage.setItem('theme', 'dark');
+  } else {
+    localStorage.setItem('theme', 'light');
+  }
+});
+
+// Fullscreen modal open function
+function openFullscreenModal(imageUrl, caption, comments, artId) {
+  const modal = document.getElementById('fullscreenModal');
+  const modalImage = document.getElementById('modalImage');
+  const commentsContainer = document.getElementById('fullscreenComments');
+  const commentForm = document.getElementById('fullscreenCommentForm');
+
+  modalImage.src = imageUrl;
+  modalImage.alt = caption;
+
+  if(commentForm) commentForm.dataset.artId = artId;
+
+  commentsContainer.innerHTML = '';
+
+  if(comments && comments.length) {
+    comments.forEach(c => {
+      const p = document.createElement('p');
+      p.textContent = "💬 " + c;
+      p.classList.add('break-words');
+      commentsContainer.appendChild(p);
+    });
+  } else {
+    const p = document.createElement('p');
+    p.textContent = 'No comments yet.';
+    p.classList.add('italic', 'text-purple-400');
+    commentsContainer.appendChild(p);
+  }
+
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open'); // prevent background scroll
+}
+
+// Fullscreen modal close function
+function closeFullscreenModal() {
+  const modal = document.getElementById('fullscreenModal');
+  modal.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+}
+
+// Submit fullscreen modal comment
+async function submitFullscreenComment(event) {
+  event.preventDefault();
+  const form = event.target;
+  const commentInput = form.comment;
+  const comment = commentInput.value.trim();
+  if(!comment) return;
+
+  const artId = form.dataset.artId;
+  if(!artId) {
+    alert('Error: artwork not identified.');
+    return;
+  }
+
+  const response = await fetch(`/add_comment/${artId}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({comment})
+  });
+
+  if(response.ok) {
+    const commentsContainer = document.getElementById('fullscreenComments');
+    const p = document.createElement('p');
+    p.textContent = "💬 " + comment;
+    p.classList.add('break-words');
+    commentsContainer.appendChild(p);
+    commentInput.value = '';
+  } else {
+    alert('Failed to post comment.');
+  }
+}
+</script>
+
+</body>
+</html>
